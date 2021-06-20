@@ -10,15 +10,19 @@ sudo apt install virtualenv
 ```bash
 . ./install.sh
 ```
+# CREATE CONFIG
+Run config creating script and enter necessary information
+```bash
+python3 create_config.py
+```
 # RUN
 You can use three CLI argument:
 ```
 -s --shape - optional argument with path to facial landmarks detector
 -d --detector - optional argument with path to frontal face detector
--c --capture - optional argument to select a camera source(RTSP-URL/Webcam)
 ```
 Run script:
 ```bash
 . ./venv/bin/activate
-python3 fl_script -c 'rtsp://camera_ip:554/'
+python3 fl_script
 ```
