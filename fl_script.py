@@ -10,6 +10,7 @@ from onvif import ONVIFCamera
 import configparser
 import os.path
 import sys
+from onvif_control import OnvifController
 ### INIT CONFIG PARSER
 config = configparser.ConfigParser()
 if(not os.path.isfile('settings.ini')):
@@ -26,36 +27,21 @@ parser.add_argument("-w", "--write", default = 'None',
         help="Filename of output file or None")
 args = vars(parser.parse_args())
 ### INIT ONVIF CAMERA
-ip = config['Settings']['ip']
-port = config['Settings']['port']
-login = config['Settings']['user']
-password = config['Settings']['password']
-wsdl = 'python-onvif-zeep/wsdl'
-print('Connecting to ONVIF-Camera')
-camera = ONVIFCamera(ip, port, login, password, wsdl)
-print('Connection to ONVIF established')
-media = camera.create_media_service()
-profile = media.GetProfiles()[1]
-ptz = camera.create_ptz_service()
-request = media.create_type('GetStreamUri')
-request.ProfileToken = profile.token
-request.StreamSetup = {'Stream': 'RTP-Unicast',
-                        'Transport': {'Protocol': 'RTSP'}}
-Uri = media.GetStreamUri(request)['Uri']
-status = ptz.GetStatus({"ProfileToken": profile.token})
-status.Position.PanTilt.x = 0
-status.Position.PanTilt.y = 0
-status.Position.Zoom.x = 0
-request = ptz.create_type("ContinuousMove")
-request.Velocity = status.Position
-request.ProfileToken = profile.token
-speed = 0.2
+if(config['ONVIFSettings']['ptz'] == 'True'):
+    ip = config['ONVIFSettings']['ip']
+    port = config['ONVIFSettings']['port']
+    login = config['ONVIFSettings']['user']
+    password = config['ONVIFSettings']['password']
+    wsdl = 'python-onvif-zeep/wsdl'
+    speed = config['ONVIFSettings']['speed']
+    controller = OnvifController(ip, port, login, password, wsdl)
 ### INIT DLIB DETECTORS
 print('Initializing DLIB models')
 detector = dlib.cnn_face_detection_model_v1(args['detector'])
 predictor = dlib.shape_predictor(args['shape'])
 print('Models initialized successfully')
 ### CAPTURE VIDEO STREAM FROM DEVICE
+Uri = controller.getRtspUrl()
 cap = cv2.VideoCapture(Uri)
 (ret, frame) = cap.read()
 [height, width, ch] = frame.shape
@@ -63,18 +49,21 @@ if(args['write'] != 'None'): ### VIDEO WRITER
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     out = cv2.VideoWriter(args['write'], fourcc, 20.0, (width, height))
 print('Program started')
+cv2.namedWindow('test')
 while cap.isOpened():
     ret, frame = cap.read()
     if(ret is None or frame is None):
         break
-    image = imutils.resize(frame, width=800)
+    image = imutils.resize(frame, width=400)
     xscale = width/image.shape[1]
     yscale = height/image.shape[0]
     rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     rects = detector(rgb, 0)
+    print(len(rects))
     if(len(rects) > 1):
        print('Several persons in shooting area')
-       ptz.Stop({'ProfileToken': profile.token})
+       if(config['ONVIFSettings']['ptz'] == 'True'):
+           controller.stop()
        continue
     for rect in rects:
         rect = rect.rect
@@ -91,7 +80,8 @@ while cap.isOpened():
         if(abs(lenL - lenR) < 10):
             string = "Frontal shooting"
             Color = (0, 255, 0)
-            ptz.Stop({'ProfileToken': profile.token})
+            if(config['ONVIFSettings']['ptz'] == 'True'):
+                controller.stop()
         else:
             if(lenL > lenR):
                 pos = (width/3)
@@ -100,15 +90,13 @@ while cap.isOpened():
             if(center[0] < pos + 50 and center[0] > pos - 50):
                 string = "Correct location in third"
                 Color = (0, 255, 0)
-                ptz.Stop({'ProfileToken': profile.token})
+                if(config['ONVIFSettings']['ptz'] == 'True'):
+                    controller.stop()
             else:
+                k = abs(center[0] - pos)/(width/2 - pos)
                 Color = (0, 0, 255)
-                if(lenL > lenR):
-                        request.Velocity.PanTilt.x = -speed
-                        ptz.ContinuousMove(request)
-                else:
-                        request.Velocity.PanTilt.x = speed
-                        ptz.ContinuousMove(request)
+                if(config['ONVIFSettings']['ptz'] == 'True'):
+                    controller.moveCamera((speed if lenL > lenR else -speed), 0)
                 string = "Move camera to " + ('right' if lenL > lenR else 'left')
                 print(string)
         if(args['write'] != 'None'):
@@ -124,3 +112,6 @@ while cap.isOpened():
             cv2.line(frame,(0, int(2*height/3)), (width, int(2*height/3)), (40, 40, 40),1)
     if(args['write'] != 'None'):
         out.write(frame)
+    cv2.imshow('test', frame)
+    if(cv2.waitKey(1) & 0xFF == ord('q')):
+        break
