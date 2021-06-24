@@ -12,3 +12,4 @@ python3 setup.py install
 pip3 install --upgrade onvif_zeep
 cd ..
 python3 -m pip install -r requirements.txt
+. ./build_opencv.sh

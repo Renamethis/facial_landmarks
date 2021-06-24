@@ -14,10 +14,10 @@ class OnvifController:
                                 'Transport': {'Protocol': 'RTSP'}}
         return self.media.GetStreamUri(request)['Uri']
     def moveCamera(self, speedx, speedy):
-        status = ptz.GetStatus({"ProfileToken": profile.token})
+        status = self.ptz.GetStatus({"ProfileToken": self.profile.token})
         status.Position.PanTilt.x = speedx
         status.Position.PanTilt.y = speedy
-        request = ptz.create_type("ContinuousMove")
+        request = self.ptz.create_type("ContinuousMove")
         request.Velocity = status.Position
         request.ProfileToken = self.profile.token
         self.ptz.ContinuousMove(request)

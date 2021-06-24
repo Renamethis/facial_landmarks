@@ -8,3 +8,6 @@ dlib/
 *.swp
 *.ini
 python-onvif-zeep/
+__pycache__/
+opencv*
+build/
