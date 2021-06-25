@@ -37,6 +37,7 @@ python3 create_config.py
   'profile' - (0/1) - media profile for rtsp stream grabbing(sub/main)
   
 - Section MAINSettings
+
   'source' - string - input source for video capturing
   
   'leftpoint' - (0;67) - index point of left eye
